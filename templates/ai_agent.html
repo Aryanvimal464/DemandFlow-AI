@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}AI Supply Agent{% endblock %}
+{% block heading %}AI Supply Agent{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>AI Supply Agent <span class="tag">Q-LEARNING</span></h2><p>The agent observes the inventory state, compares the expected long-term reward of each action and picks the best one.</p></div>
+  <div class="row"><label style="margin:0">Product</label><select id="prod" style="width:200px"></select></div></div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Current state <small>what the agent sees</small></h3></div><div id="state">...</div></div>
+  <div class="card"><div class="card-h"><h3>Available actions and Q-values</h3></div><div id="qvals">...</div>
+    <p class="note">The agent selects the action with the highest expected long-term reward (the largest Q-value for the current state).</p><p class="note" id="capNote"></p></div>
+</div>
+<div class="card decision section-gap" id="selected">...</div>
+<div class="card">
+  <div class="card-h"><h3>Recommendations for all products</h3><span class="small mut">Apply runs a simulated week and updates the Q-table. Reject sends a −0.3 penalty.</span></div>
+  <div class="tbl" id="tbl"></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const ANAME={ORDER_MORE:'Reorder',SUPPLY_NORMAL:'Supply',SUPPLY_HIGH:'Supply High Priority',WAIT:'Wait',REDUCE_STOCK:'Reduce Stock'};
+const ORDER=['ORDER_MORE','SUPPLY_NORMAL','SUPPLY_HIGH','WAIT','REDUCE_STOCK'];
+let cur=null;
+function stateCard(r){const v=r.state_vars;
+  const rows=[['Stock cover (on-hand + incoming)',v.cover_weeks+' weeks','<1.5 low · >3.5 high',r.state_parts[0]],['Demand vs baseline',v.demand_ratio+'×','<0.85 low · >1.2 high',r.state_parts[1]],['Pending orders vs weekly demand',v.pending_ratio+'×','<0.15 none · ≥0.6 high',r.state_parts[2]]];
+  $('state').innerHTML=`<div class="chips" style="margin-bottom:12px">${r.state_parts.map(s=>`<span class="chip">${s}</span>`).join('')}</div>
+   <div class="tbl"><table><thead><tr><th>Variable</th><th class="n">Value</th><th>Thresholds</th><th>State</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x[0]}</td><td class="n mono">${x[1]}</td><td class="mut small">${x[2]}</td><td><span class="chip">${x[3]}</span></td></tr>`).join('')}</tbody></table></div>
+   <p class="note">Current stock ${fmt(r.stock)} kg · 7-day demand ${fmt(r.d7)} kg · pending ${fmt(r.pending_qty)} kg · safety stock ${fmt(r.safety)} kg · lead time ${r.eff_lead_days} days.</p>`}
+function qCard(r){
+  const q=ORDER.map(a=>r.qvalues.find(x=>x.action===a));const vals=q.map(x=>x.q),mn=Math.min(...vals),mx=Math.max(...vals);
+  const sel=r.agent_action;
+  $('qvals').innerHTML=(r.trained?'':'<p class="small" style="color:#fbbf24;margin-top:0">No learned Q-values for this state yet (all 0). The agent picks among tied actions; train it in the <a href="/training">AI Training Lab</a>.</p>')+
+   q.map(x=>{const w=mx===mn?4:8+92*(x.q-mn)/(mx-mn);const s=x.action===sel;
+    return `<div class="qrow ${s?'sel':''}"><span class="${s?'':'mut'}">${ANAME[x.action]}</span><div class="bar"><i style="width:${w}%"></i></div><b class="mono">${x.q.toFixed(2)}</b><span class="selmark">${s?'← SELECTED':''}</span></div>`}).join('');
+}
+function selCard(r){const im=r.impact;
+  $('selected').innerHTML=`<div class="card-h"><div class="name">SELECTED ACTION · ${esc(r.product_name.toUpperCase())}</div><span class="tag">SIMULATION</span></div>
+   <div class="head">${esc(r.headline)}</div>
+   <div class="dgrid"><div><span>Action</span><b style="font-size:16px">${esc(r.label)}</b></div><div><span>Reorder quantity</span><b>${fmt(r.reorder_qty)} kg</b></div><div><span>Supply to dealers</span><b>${fmt(r.supply_qty)} kg</b></div><div><span>Confidence</span><b>${r.confidence}%</b></div><div><span>Risk</span><b>${badge(r.risk)}</b></div></div>
+   <div class="grid g-eq" style="margin-bottom:0"><div><h4 style="margin-bottom:8px">Reasoning</h4><ul class="reasons">${r.reasons.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+    <div><h4 style="margin-bottom:8px">Expected business impact <small class="mut">(${im.horizon_weeks}-week Monte-Carlo simulation)</small></h4>
+     <div class="m"><span class="mut">Stockout probability</span><b>${im.stockout_before}% → ${im.stockout_after}%</b></div><div class="m"><span class="mut">Service level</span><b>${im.service_before}% → ${im.service_after}%</b></div><div class="m"><span class="mut">Simulated cost</span><b>${money(im.cost_before)} → ${money(im.cost_after)}</b></div><div class="m"><span class="mut">Estimated saving</span><b style="color:${im.saving>=0?'#4ade80':'#f87171'}">${money(im.saving)}</b></div>
+     <p class="note">"Before" = no replenishment action. Parameters are editable in Settings.</p></div></div>
+   <div class="row" style="margin-top:14px"><button class="btn primary" onclick="decide('${r.product_id}',true)">Apply Recommendation (simulation)</button><button class="btn" onclick="decide('${r.product_id}',false)">Reject Recommendation</button><a class="btn" href="/what-if?product=${r.product_id}">Open in What-If Simulator</a></div>`}
+async function loadRec(){
+  try{cur=await api('/api/recommendation/'+$('prod').value);
+    $('capNote').textContent=cur.note||'';
+    stateCard(cur);qCard(cur);selCard(cur);
+  }catch(e){errorState($('selected'),e.message,loadRec)}
+}
+async function loadTable(){
+  $('tbl').innerHTML='<div style="padding:16px">'+skeleton(5,28)+'</div>';
+  try{const recs=await api('/api/recommendations');const sel=$('prod'),keep=sel.value;
+    if(!sel.options.length)sel.innerHTML=recs.map(r=>`<option value="${r.product_id}">${esc(r.product_name)}</option>`).join('');if(keep)sel.value=keep;
+    $('tbl').innerHTML=`<table><thead><tr><th>Product</th><th class="n">Current stock</th><th class="n">Predicted demand (7d)</th><th class="n">Pending</th><th>Recommended action</th><th class="n">Quantity</th><th>Risk</th><th class="n">Confidence</th><th>Decision</th></tr></thead><tbody>${recs.map(r=>`<tr><td><b>${esc(r.product_name)}</b></td><td class="n">${fmt(r.stock)}</td><td class="n">${fmt(r.d7)}</td><td class="n">${fmt(r.pending_qty)}</td><td>${esc(r.label)}</td><td class="n">${r.reorder_qty?fmt(r.reorder_qty)+' kg':'–'}</td><td>${badge(r.risk)}</td><td class="n">${r.confidence}%</td>
+     <td><button class="btn sm primary" onclick="decide('${r.product_id}',true)">Apply</button> <button class="btn sm" onclick="decide('${r.product_id}',false)">Reject</button> <button class="btn sm ghost" onclick="$('prod').value='${r.product_id}';loadRec();window.scrollTo({top:0,behavior:'smooth'})">Explain</button></td></tr>`).join('')}</tbody></table>`;
+  }catch(e){errorState($('tbl'),e.message,loadTable)}
+}
+async function decide(pid,ok){
+  const name=($('prod').querySelector(`option[value="${pid}"]`)||{}).textContent||pid;
+  if(ok&&!await confirmDialog('Apply recommendation (simulation)?',`Runs a <b>simulated</b> week for ${esc(name)}, updates stock/orders in the demo database and rewards or penalises the agent.`,'Apply in simulation'))return;
+  try{const r=await post(`/api/recommendation/${pid}/${ok?'apply':'reject'}`);
+    toast(ok?`Applied: ${r.outcome}. Reward ${r.reward>0?'+':''}${r.reward}. Q ${r.q_old.toFixed(2)} → ${r.q_new.toFixed(2)}`:`Rejected: reward ${r.reward}, Q ${r.q_old.toFixed(2)} → ${r.q_new.toFixed(2)}`);
+    refreshMeta();await loadTable();await loadRec();
+  }catch(e){toast(e.message,1)}
+}
+$('prod').onchange=loadRec;
+window.onBrainChanged=async()=>{await loadTable();await loadRec()};
+loadTable().then(()=>{const p=new URLSearchParams(location.search).get('product');if(p)$('prod').value=p;return loadRec()});
+</script>{% endblock %}

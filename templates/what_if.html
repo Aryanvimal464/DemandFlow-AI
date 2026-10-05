@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}What-If Simulator{% endblock %}
+{% block heading %}What-If Simulator{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>What-If Simulator <span class="tag">SIMULATION</span></h2><p>Change the business conditions and compare the current scenario (no replenishment action) with the AI recommended scenario. Results come from a 300-run Monte-Carlo simulation with synthetic parameters.</p></div></div>
+<div class="grid g-main">
+  <div class="card">
+    <div class="card-h"><h3>Scenario inputs</h3><div class="row"><button class="btn sm" onclick="preset('reset')">Current values</button><button class="btn sm" onclick="preset('ok')">Healthy</button><button class="btn sm" onclick="preset('crisis')">Crisis</button></div></div>
+    <div class="grid g3" style="gap:12px;margin-bottom:8px">
+      <div class="field"><label>Product</label><select id="prod"></select></div>
+      <div class="field"><label>Demand change: <b id="dcv">0</b>%</label><input id="w_chg" type="range" min="-50" max="100" step="5" value="0"></div>
+      <div class="field"><label>Inventory level (kg)</label><input id="w_stock" type="number" min="0"></div>
+      <div class="field"><label>Pending orders (kg)</label><input id="w_pending" type="number" min="0"></div>
+      <div class="field"><label>Supplier lead time (days)</label><input id="w_lead" type="number" min="1" max="60"></div>
+      <div class="field"><label>Transport cost (₹ per km)</label><input id="w_tc" type="number" min="0"></div>
+      <div class="field"><label>Stockout penalty (% of price)</label><input id="w_sp" type="number" min="0"></div>
+    </div>
+    <button class="btn primary" id="runBtn" onclick="run()">Run Simulation</button>
+    <span class="small mut" id="baseNote" style="margin-left:10px"></span>
+  </div>
+  <div class="card"><div class="card-h"><h3>Scenario log</h3></div><div id="log"><div class="empty small">Run a simulation to compare scenarios.</div></div></div>
+</div>
+<div id="result"><div class="card"><div class="empty">Set the inputs and click <b>Run Simulation</b>.</div></div></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/simulation.js') }}"></script>{% endblock %}

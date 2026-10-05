@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Command Center{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h2>Supply Chain Command Center</h2><p>Business health, AI recommendations and risk alerts in one place. <span class="tag">SIMULATED DATA</span></p></div>
+  <div class="row"><button class="btn" onclick="playPipeline()">Replay AI analysis</button><button class="btn primary" id="demoBtn" onclick="runDemo()">Run Full Demo</button></div>
+</div>
+<div class="grid g4" id="kpis">{% for i in range(8) %}<div class="card"><div class="skel" style="height:96px"></div></div>{% endfor %}</div>
+<div class="grid g-main">
+  <div class="card decision" id="decision"><div class="skel" style="height:260px"></div></div>
+  <div class="card"><div class="card-h"><h3>AI Alerts <small id="alertCount"></small></h3><a href="/inventory" class="small">Inventory →</a></div><div id="alerts">...</div></div>
+</div>
+<div class="card section-gap">
+  <div class="card-h"><h3>AI processing pipeline <small>visual walkthrough, does not modify business data</small></h3><div class="pipe-status" id="pipeStatus"></div></div>
+  <div class="pipe" id="pipe"></div>
+  <div id="demoLog"></div>
+</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Stock vs predicted 7-day demand <small>kg</small></h3></div><div class="chartbox"><canvas id="cStock"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Weekly demand and next-week forecast <small>all products, kg</small></h3></div><div class="chartbox"><canvas id="cWeekly"></canvas></div></div>
+</div>
+<div class="grid g3">
+  <div class="card"><div class="card-h"><h3>AI learning progress</h3><a href="/training" class="small">Training Lab →</a></div><div class="chartbox sm"><canvas id="cLearn"></canvas></div><p class="note" id="learnNote"></p></div>
+  <div class="card"><div class="card-h"><h3>Order status</h3><a href="/orders" class="small">Orders →</a></div><div class="chartbox sm"><canvas id="cOrders"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Recent AI decisions</h3></div><div id="recent"></div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

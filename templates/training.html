@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}AI Training Lab{% endblock %}
+{% block heading %}AI Training Lab{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>AI Training Lab <span class="tag">REAL TRAINING RUN</span></h2><p>Q-learning trains on simulated supply episodes (12 weekly decisions each). Nothing here is pre-recorded: charts update from the live training loop.</p></div></div>
+<div class="grid g-main">
+  <div class="card">
+    <div class="card-h"><h3>Training controls</h3></div>
+    <div class="grid g4" style="gap:12px;margin-bottom:6px">
+      <div class="field"><label data-tip="How strongly new experience overwrites old Q-values">Learning rate (α)</label><input id="alpha" type="number" step="0.01" min="0.01" max="1" value="0.1"></div>
+      <div class="field"><label data-tip="Importance of future rewards">Discount factor (γ)</label><input id="gamma" type="number" step="0.01" min="0" max="0.99" value="0.9"></div>
+      <div class="field"><label data-tip="Start probability of a random action; decays to 0.05">Exploration (ε start)</label><input id="eps" type="number" step="0.05" min="0" max="1" value="0.9"></div>
+      <div class="field"><label>Training episodes</label><input id="episodes" type="number" step="100" min="50" max="20000" value="2000"></div>
+    </div>
+    <div class="row"><button class="btn primary" id="startBtn" onclick="startTraining()">Start Training</button><button class="btn" id="stopBtn" onclick="stopTraining()" disabled>Stop</button>
+      <button class="btn danger" onclick="resetAgent()">Reset Agent</button><button class="btn" onclick="showQ()">View Q-Table</button><button class="btn ghost" onclick="saveBrain()">Save brain</button><button class="btn ghost" onclick="loadBrain()">Load brain</button></div>
+    <div class="bar" style="margin-top:14px;height:9px"><i id="prog" style="width:0%"></i></div>
+    <p class="note" id="progTxt">Idle. ε decays from the start value to 0.05 over the run.</p>
+  </div>
+  <div class="card"><div class="card-h"><h3>Reward design</h3></div>
+    <table><tbody><tr><td>Correct supply decision</td><td class="n" style="color:#4ade80">+1</td></tr><tr><td>Avoided stockout</td><td class="n" style="color:#4ade80">+1</td></tr><tr><td>Customer demand satisfied</td><td class="n" style="color:#4ade80">+1</td></tr><tr><td>Excess inventory</td><td class="n" style="color:#f87171">−0.5</td></tr><tr><td>Unnecessary reorder</td><td class="n" style="color:#f87171">−0.5</td></tr><tr><td>Stockout</td><td class="n" style="color:#f87171">−1</td></tr><tr><td>Late supply</td><td class="n" style="color:#f87171">−1</td></tr></tbody></table></div>
+</div>
+<div class="grid g4" id="live"></div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Reward vs episode</h3></div><div class="chartbox"><canvas id="cReward"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Average reward <small>per decision, moving average of 50 episodes</small></h3></div><div class="chartbox"><canvas id="cAvg"></canvas></div></div>
+</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Action distribution <small>actions chosen during training</small></h3></div><div class="chartbox sm"><canvas id="cAct"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Before vs after training <small>300 identical test episodes</small></h3><button class="btn sm" onclick="evaluate()">Re-evaluate</button></div>
+    <div class="cmp"><div class="card before flat"><h3>Before <small>untrained, random</small></h3><div id="before">...</div></div><div class="card after flat"><h3>After <small id="afterNote"></small></h3><div id="after">...</div></div></div></div>
+</div>
+<div class="card" id="qCard" style="display:none"><div class="card-h"><h3>Q-table <small>rows = states, columns = actions; outlined = best action</small></h3><button class="btn sm" onclick="$('qCard').style.display='none'">Hide</button></div>
+  <div class="tbl"><table class="heat"><thead><tr><th>State</th><th>ORDER_MORE</th><th>SUPPLY_NORMAL</th><th>SUPPLY_HIGH</th><th>WAIT</th><th>REDUCE_STOCK</th><th>Visits</th></tr></thead><tbody id="qt"></tbody></table></div></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/training.js') }}"></script>{% endblock %}

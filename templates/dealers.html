@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Dealers{% endblock %}
+{% block heading %}Dealers{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Dealer Management</h2><p id="formula">Dealer performance, priority and risk. Click a dealer for the detail page.</p></div></div>
+<div class="card">
+  <div class="toolbar"><input id="q" placeholder="Search dealer, location, product…"><select id="fp"><option value="">All priorities</option><option>High</option><option>Medium</option><option>Low</option></select><span class="mut small" id="count"></span></div>
+  <div class="tbl" id="tbl"></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+let rows=[];
+const riskBadge=s=>`<span class="badge b-${s>=55?'red':s>=35?'orange':'green'}" data-tip="0-100, see formula above">${s}</span>`;
+function render(){
+  const q=$('q').value.toLowerCase(),p=$('fp').value;
+  const f=rows.filter(r=>(!p||r.priority===p)&&(r.name+r.location+r.product).toLowerCase().includes(q));
+  $('count').textContent=`${f.length} of ${rows.length} dealers`;
+  if(!f.length){$('tbl').innerHTML=emptyState('No dealers match','Try a different search.');return}
+  $('tbl').innerHTML=`<table><thead><tr><th>Dealer</th><th>Main product</th><th class="n">Orders</th><th class="n">Pending</th><th class="n">Revenue</th><th class="n">Avg order</th><th class="n">Distance</th><th>Priority</th><th class="n">Risk score</th></tr></thead><tbody>${f.map(r=>`<tr class="click" onclick="location.href='/dealers/${r.customer_id}'"><td><b>${esc(r.name)}</b><div class="small dim">${esc(r.location)}</div></td><td>${esc(r.product)}</td><td class="n">${r.orders}</td><td class="n">${r.pending}</td><td class="n">${money(r.revenue)}</td><td class="n">${fmt(r.avg_order)} kg</td><td class="n">${r.distance} km</td><td>${badge(r.priority)}</td><td class="n">${riskBadge(r.risk_score)}</td></tr>`).join('')}</tbody></table>`;
+}
+async function load(){
+  $('tbl').innerHTML='<div style="padding:16px">'+skeleton(6,28)+'</div>';
+  try{const d=await api('/api/dealers');rows=d.items;$('formula').textContent=d.risk_formula+' Revenue = delivered + dispatched orders at unit price (synthetic).';render()}catch(e){errorState($('tbl'),e.message,load)}
+}
+$('q').oninput=render;$('fp').onchange=render;load();
+</script>{% endblock %}

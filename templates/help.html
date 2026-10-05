@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Help & Guide{% endblock %}
+{% block heading %}Help &amp; Guide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h2>Help &amp; Guide</h2><p>Understand every page of SupplyMind AI and how the AI makes its decisions. <span class="tag">SIMULATED DATA</span></p></div>
+  <div class="row"><a class="btn" href="/">Go to Dashboard</a><a class="btn primary" href="#ai-workflow">See AI workflow</a></div>
+</div>
+
+<div class="help-toc card flat">
+  <a href="#overview">1. What is this?</a>
+  <a href="#quickstart">2. Quick start</a>
+  <a href="#pages">3. Pages explained</a>
+  <a href="#ai-workflow">4. AI workflow</a>
+  <a href="#live">5. Live example</a>
+  <a href="#learning">6. How the AI learns</a>
+  <a href="#glossary">7. Glossary</a>
+  <a href="#faq">8. FAQ</a>
+</div>
+
+<section id="overview" class="card section-gap">
+  <div class="card-h"><h3>1. What is SupplyMind AI?</h3></div>
+  <p>SupplyMind AI is a <b>decision-support dashboard</b> for a company that <b>buys multigrain and spices from suppliers and sells them to dealers</b>. Its main job is to answer three questions for every product:</p>
+  <div class="grid g3" style="margin-top:12px">
+    <div class="card flat"><b>How much to order?</b><p class="mut small">Reorder quantity from the supplier so stock does not run out or pile up.</p></div>
+    <div class="card flat"><b>When to order?</b><p class="mut small">Based on demand, current stock, incoming stock and supplier lead time.</p></div>
+    <div class="card flat"><b>How much to supply now?</b><p class="mut small">How much stock to ship to dealers against their pending orders.</p></div>
+  </div>
+  <p class="note">All data (products, dealers, orders, costs) is synthetic. Savings, service level and accuracy are <b>simulation outputs</b>, not real business results.</p>
+</section>
+
+<section id="quickstart" class="card section-gap">
+  <div class="card-h"><h3>2. Quick start (5 minutes)</h3></div>
+  <div class="step"><span class="no">1</span><div><b>Open the Dashboard.</b><div class="mut small">See the 8 KPI cards, alerts and the AI Decision Center.</div></div></div>
+  <div class="step"><span class="no">2</span><div><b>Click "Run Full Demo".</b><div class="mut small">It trains the AI on 1,500 simulated episodes and shows before vs after results. It resets the AI brain, so you will be asked to confirm.</div></div></div>
+  <div class="step"><span class="no">3</span><div><b>Open "AI Supply Agent".</b><div class="mut small">Pick a product, read the recommendation and the reasons, then press <b>Apply</b> or <b>Reject</b>.</div></div></div>
+  <div class="step"><span class="no">4</span><div><b>Try the "What-If Simulator".</b><div class="mut small">Change demand, stock or lead time and compare the current plan with the AI plan.</div></div></div>
+  <div class="step"><span class="no">5</span><div><b>Press the <span class="mono">?</span> button in the top bar on any page.</b><div class="mut small">It opens a short explanation of the page you are on.</div></div></div>
+</section>
+
+<section id="pages" class="card section-gap">
+  <div class="card-h"><h3>3. Pages explained</h3><input id="pageFilter" class="help-filter" placeholder="Filter pages…" aria-label="Filter pages"></div>
+  <div class="grid g3" id="pageCards"></div>
+</section>
+
+<section id="ai-workflow" class="card section-gap">
+  <div class="card-h"><h3>4. AI workflow (end to end)</h3><div class="row"><button class="btn sm" id="flowPlay">Play walkthrough</button><button class="btn sm ghost" id="flowStop">Stop</button></div></div>
+  <p class="mut">Click any step, or press <b>Play walkthrough</b>. This is a visual explanation only and does not change your data.</p>
+  <div class="flow" id="flow"></div>
+  <div class="card flat flow-detail" id="flowDetail" aria-live="polite"></div>
+</section>
+
+<section id="live" class="card section-gap">
+  <div class="card-h"><h3>5. Live example from your data</h3><select id="liveProduct" class="help-filter" aria-label="Choose product"></select></div>
+  <p class="mut">The AI's real current view of the selected product. It is read-only; nothing is applied.</p>
+  <div id="liveBody">{% for i in range(3) %}<div class="skel" style="height:18px;margin-bottom:10px"></div>{% endfor %}</div>
+</section>
+
+<section id="learning" class="card section-gap">
+  <div class="card-h"><h3>6. How the AI learns (Q-learning)</h3></div>
+  <p>The agent keeps a table called the <b>Q-table</b>. It has <b>27 situations (states)</b> and <b>5 possible actions</b>. Each cell is a score: "how good is this action in this situation in the long run?"</p>
+  <div class="formula mono">Q(s,a) ← Q(s,a) + α · [ r + γ · max Q(s',a') − Q(s,a) ]</div>
+  <div class="grid g3">
+    <div class="card flat"><h3>State (27)</h3><p class="mut small">Stock cover (LOW / NORMAL / HIGH) × demand level (LOW / NORMAL / HIGH) × pending orders (NONE / SOME / HIGH).</p></div>
+    <div class="card flat"><h3>Actions (5)</h3><p class="mut small"><b>ORDER_MORE</b> (2× weekly demand), <b>SUPPLY_HIGH</b> (1.5×), <b>SUPPLY_NORMAL</b> (1×), <b>WAIT</b>, <b>REDUCE_STOCK</b>.</p></div>
+    <div class="card flat"><h3>Rewards</h3><p class="mut small"><span class="pos">+1</span> correct decision, avoided stockout, demand satisfied. <span class="neg">−0.5</span> excess stock, unnecessary reorder. <span class="neg">−1</span> stockout, late supply. <span class="neg">−0.3</span> when you reject a recommendation.</p></div>
+  </div>
+  <div class="grid g-eq" style="margin-top:4px">
+    <div class="card flat"><h3>Explore vs exploit</h3><p class="mut small">While training, the agent sometimes tries random actions (<b>epsilon</b>) to discover better ones. Epsilon shrinks to 0.05, so later it mostly uses what it learned.</p></div>
+    <div class="card flat"><h3>Before vs after</h3><p class="mut small"><b>Before</b> = random decisions. <b>After</b> = the learned policy. Both are tested on the same 300 seeded episodes, so the comparison is fair.</p></div>
+  </div>
+  <p class="note">The final quantity is not only the raw Q-table action: it is also adjusted to reach safety stock plus lead-time demand, and capped at the maximum stock level.</p>
+</section>
+
+<section id="glossary" class="card section-gap">
+  <div class="card-h"><h3>7. Glossary</h3></div>
+  <dl class="gloss" id="gloss"></dl>
+</section>
+
+<section id="faq" class="card section-gap">
+  <div class="card-h"><h3>8. FAQ</h3></div>
+  <div id="faqList"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script>
+/* ---------- content ---------- */
+const PAGES=[
+ ['/','grid','Dashboard','Command Center: 8 KPIs, AI Decision Center, alerts, animated AI pipeline, learning progress and Run Full Demo.'],
+ ['/inventory','package','Inventory Intelligence','Stock per product with status badges, reorder point and simulated stockout risk. Click a product for forecast and cost impact.'],
+ ['/demand','trend','Demand Intelligence','7/30-day forecast, trend, seasonality and a backtest (actual vs predicted vs naive).'],
+ ['/orders','clipboard','Orders','Create demo orders and move them Pending → Confirmed → Dispatched → Delivered / Returned. Stock updates automatically.'],
+ ['/dealers','users','Dealers','Orders, revenue, risk score and priority per dealer. Open a dealer for demand pattern and AI advice.'],
+ ['/ai-agent','cpu','AI Supply Agent','The AI recommendation for a product: state, Q-values, chosen action, confidence, reasons, impact, Apply / Reject.'],
+ ['/what-if','sliders','What-If Simulator','Change demand, stock, pending orders, lead time and costs; compare the current plan with the AI plan.'],
+ ['/training','zap','AI Training Lab','Train the agent live, watch reward charts and the Q-table, compare before vs after, save / load / reset the brain.'],
+ ['/route-planner','truck','Route Optimization','Delivery sequence on a simulated grid map, with vehicle capacity, priorities and transport cost.'],
+ ['/cost-optimization','dollar','Cost Optimization','Holding, stockout, ordering and transport cost: current plan vs AI plan.'],
+ ['/system-health','activity','System Health','Live component checks and real pytest results (tests run only when you press the button).'],
+ ['/settings','gear','Settings','Edit simulation parameters, save / load the AI brain, reset demo data.']
+];
+const FLOW=[
+ ['Orders arrive','clipboard','Dealers place orders (Orders page). Pending and Confirmed orders are counted as pending demand.','Orders page → database'],
+ ['Demand analysis','trend','The system forecasts the next 7 and 30 days using a weighted average of the last 30/60/90 days, a trend factor and a seasonal index.','ai/demand_prediction.py'],
+ ['Inventory state','package','Current stock, incoming supplier orders, safety stock and min/max limits are combined with demand and pending orders. They become one of 27 states.','ai/decision_engine.py'],
+ ['AI picks an action','cpu','The Q-learning agent looks up that state in its Q-table and picks the action with the highest score. During training it sometimes explores randomly.','ai/q_learning.py'],
+ ['Recommendation','target','The action becomes a business advice: Reorder, Supply, Wait or Reduce Stock, with quantity, risk, confidence and plain-language reasons.','AI Supply Agent page'],
+ ['Human decision','shield','The planner presses Apply (a simulated week runs and stock and orders update) or Reject (the agent gets a small penalty).','Apply / Reject buttons'],
+ ['Outcome & reward','dollar','The simulated week produces an outcome: stockout, late supply, excess stock or satisfied demand. Each gives a reward or penalty.','Reward table'],
+ ['Learning update','zap','The Q-table is updated with the Q-learning formula. The decision log grows and the next recommendation can be better.','Training Lab / decision log'],
+ ['Delivery','truck','The Route Planner sequences dealer deliveries by priority, distance and deadline.','Route Optimization page']
+];
+const GLOSS=[
+ ['Stock cover','How many weeks current stock (plus incoming) can satisfy expected demand.'],
+ ['Safety stock','Extra buffer that protects against demand and lead-time uncertainty: max(1.28 × weekly demand std-dev × √(lead time/7), 0.5 × minimum stock).'],
+ ['Lead time','Supplier days plus 1 buffer day per 150 km average delivery distance.'],
+ ['Reorder point','Stock level at which a new supplier order should be placed.'],
+ ['Stockout','Demand that could not be served because stock ran out.'],
+ ['Overstock','Stock above the maximum level; ties up money and storage.'],
+ ['Q-table','The agent\'s memory: a score for every (state, action) pair.'],
+ ['Epsilon (ε)','Chance of trying a random action while training (exploration).'],
+ ['Reward','Number telling the agent whether the result of its action was good or bad.'],
+ ['WAPE','Weighted absolute percentage error used to measure forecast accuracy. Forecast confidence = 100 − WAPE.'],
+ ['Naive baseline','Simple forecast ("next period = last period") used to check that the model adds value.'],
+ ['Monte-Carlo simulation','Running 300 random what-if futures to estimate average cost, stockout chance and service level.'],
+ ['Service level','Share of demand that was served from stock.']
+];
+const FAQ=[
+ ['Is this real company data?','No. Everything is synthetic and simulated. It is a portfolio prototype.'],
+ ['Why does the forecast sometimes look like the naive baseline?','The synthetic order stream is lumpy, so the statistical model performs about on par with the naive forecast. The app reports this honestly.'],
+ ['What happens when I press Reject?','Nothing is changed in stock. The agent receives a penalty of −0.3 so it learns that the suggestion was not useful.'],
+ ['What does "Reset demo data" do?','It rebuilds the database from the CSV files: orders, stock and decision log return to the start.'],
+ ['Does Run Full Demo delete my training?','Yes, it resets the Q-table first, then trains again. Use Settings → Save AI brain if you want a backup.'],
+ ['Do I need an API key or internet?','No API key is needed. Internet is only used to load Chart.js and Google Fonts.']
+];
+
+/* ---------- pages grid ---------- */
+function renderPages(f){f=(f||'').toLowerCase();
+ const list=PAGES.filter(p=>!f||(p[2]+' '+p[3]).toLowerCase().includes(f));
+ $('pageCards').innerHTML=list.length?list.map(p=>`<a class="card flat page-card" href="${p[0]}"><div class="row">${ico(p[1])}<b>${esc(p[2])}</b></div><p class="mut small">${esc(p[3])}</p></a>`).join(''):emptyState('No page matches','Try another word');
+}
+$('pageFilter').addEventListener('input',debounce(e=>renderPages(e.target.value),150));
+renderPages();
+
+/* ---------- flow ---------- */
+let flowIdx=0,flowTimer=null;
+function renderFlow(){
+ $('flow').innerHTML=FLOW.map((s,i)=>`<button class="flow-node${i===flowIdx?' on':''}" data-i="${i}" aria-label="Step ${i+1}: ${esc(s[0])}"><span class="fn-no">${i+1}</span>${ico(s[1])}<span>${esc(s[0])}</span></button>`).join('<i class="flow-arrow">→</i>');
+ const s=FLOW[flowIdx];
+ $('flowDetail').innerHTML=`<div class="row">${ico(s[1],22)}<h3>Step ${flowIdx+1}: ${esc(s[0])}</h3></div><p>${esc(s[2])}</p><p class="small dim">Where: <span class="mono">${esc(s[3])}</span></p>`;
+ $('flow').querySelectorAll('.flow-node').forEach(b=>b.onclick=()=>{stopFlow();flowIdx=+b.dataset.i;renderFlow()});
+}
+function stopFlow(){if(flowTimer){clearInterval(flowTimer);flowTimer=null}$('flowPlay').disabled=false}
+$('flowPlay').onclick=()=>{stopFlow();flowIdx=0;renderFlow();$('flowPlay').disabled=true;
+ flowTimer=setInterval(()=>{if(flowIdx>=FLOW.length-1){stopFlow();return}flowIdx++;renderFlow()},2200)};
+$('flowStop').onclick=stopFlow;
+renderFlow();
+
+/* ---------- glossary + faq ---------- */
+$('gloss').innerHTML=GLOSS.map(g=>`<div><dt>${esc(g[0])}</dt><dd>${esc(g[1])}</dd></div>`).join('');
+$('faqList').innerHTML=FAQ.map(f=>`<details class="faq"><summary>${esc(f[0])}</summary><p class="mut">${esc(f[1])}</p></details>`).join('');
+
+/* ---------- live example ---------- */
+async function loadLive(pid){
+ const box=$('liveBody');box.innerHTML=skeleton(4);
+ try{
+  const r=await api('/api/recommendation/'+encodeURIComponent(pid));
+  const maxQ=Math.max(...r.qvalues.map(x=>x.q)),minQ=Math.min(...r.qvalues.map(x=>x.q)),span=(maxQ-minQ)||1;
+  const sp=r.state_parts||[];
+  box.innerHTML=`
+   <div class="live-grid">
+    <div class="live-step"><span class="no">1</span><div><b>Data</b><div class="mut small">Stock ${fmt(r.stock)} ${esc(r.unit)} · incoming ${fmt(r.incoming)} · pending orders ${fmt(r.pending_qty)} · 7-day forecast ${fmt(r.d7)} · trend ${r.trend_pct>0?'+':''}${fmt(r.trend_pct,1)}%</div></div></div>
+    <div class="live-step"><span class="no">2</span><div><b>State</b><div class="row" style="margin-top:4px">${sp.map(x=>`<span class="badge b-blue">${esc(x)}</span>`).join('')}</div></div></div>
+    <div class="live-step"><span class="no">3</span><div><b>Q-values</b>${r.trained?'':'<div class="small" style="color:var(--orange)">Agent is untrained: all scores are near zero. Train it in the Training Lab.</div>'}
+      ${r.qvalues.map(x=>`<div class="qrow"><span class="mono small">${esc(x.action)}</span><div class="qbar"><i style="width:${Math.round(((x.q-minQ)/span)*100)}%"></i></div><span class="mono small">${x.q}</span></div>`).join('')}</div></div>
+    <div class="live-step"><span class="no">4</span><div><b>Recommendation</b><div style="margin-top:4px"><span class="badge b-green">${esc(r.label)}</span> ${r.reorder_qty?`<b>${fmt(r.reorder_qty)} ${esc(r.unit)}</b>`:''} · risk ${badge(r.risk)} · confidence <b>${r.confidence}%</b></div>
+      <ul class="mut small" style="margin:6px 0 0 16px;padding:0">${(r.reasons||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <a class="btn sm" style="margin-top:10px" href="/ai-agent">Open in AI Supply Agent →</a></div></div>
+   </div>`;
+ }catch(e){errorState(box,e.message,()=>loadLive(pid))}
+}
+(async function(){
+ try{
+  const inv=await api('/api/inventory');const items=Array.isArray(inv)?inv:(inv.items||inv.products||[]);
+  const sel=$('liveProduct');
+  sel.innerHTML=items.map(p=>`<option value="${esc(p.product_id)}">${esc(p.product_name||p.name||p.product_id)}</option>`).join('');
+  if(!items.length){$('liveBody').innerHTML=emptyState('No products found','Reset demo data in Settings');return}
+  sel.onchange=()=>loadLive(sel.value);loadLive(sel.value);
+ }catch(e){errorState($('liveBody'),e.message)}
+})();
+
+/* deep link: open the section from the URL hash */
+if(location.hash){setTimeout(()=>{const t=document.querySelector(location.hash);if(t)t.scrollIntoView()},300)}
+</script>{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}System Health{% endblock %}
+{% block heading %}System Health{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>System Health</h2><p>Live component checks and automated test results. Nothing here is hard-coded.</p></div><button class="btn" onclick="loadAll()">Refresh</button></div>
+<div class="grid g-main">
+  <div class="card"><div class="card-h"><h3>Components <small id="overall"></small></h3></div><div id="comps"><div class="skel" style="height:200px"></div></div></div>
+  <div class="card"><div class="card-h"><h3>System information</h3></div><div id="info"></div></div>
+</div>
+<div class="card" id="quality"><div class="skel" style="height:160px"></div></div>
+{% endblock %}
+{% block scripts %}<script>
+async function loadHealth(){
+  const t0=performance.now();
+  try{const d=await api('/api/system-health');const rt=Math.round(performance.now()-t0);
+    $('overall').innerHTML=badge(d.overall==='Operational'?'Operational':'Down').replace('Down','Degraded');
+    $('comps').innerHTML=d.components.map(c=>`<div class="health-row"><span class="dot ${c.status==='Operational'?'':'bad'}"></span><div style="flex:1"><b>${esc(c.name)}</b><div class="small mut">${esc(c.detail||'')}</div></div><span class="mono small mut">${c.latency_ms} ms</span>${badge(c.status)}</div>`).join('');
+    const kv=[['API response (full health check)',rt+' ms'],['Database status',d.components.find(c=>c.name==='Database').status+' · '+d.db_size_kb+' KB'],['Last training',d.last_training||'Never (agent untrained)'],['Last forecast run',d.last_forecast],['Episodes trained',fmt(d.episodes)],['Q-table states',d.q_states+' / 27'],['Simulation date',d.as_of||'–'],['Application version',d.version],['Python',d.python]];
+    $('info').innerHTML=kv.map(x=>`<div class="m"><span class="mut">${x[0]}</span><b style="font-size:13px">${esc(x[1])}</b></div>`).join('');
+  }catch(e){errorState($('comps'),e.message,loadHealth)}
+}
+function qualityHTML(q){
+  if(!q.available)return `<div class="card-h"><h3>Quality &amp; System Health <small>automated tests</small></h3><button class="btn primary" onclick="runTests()" id="runBtn">Run tests</button></div>${emptyState('No test results yet',q.message||'Click Run tests.')}`;
+  const ok=q.failed===0;
+  const mods=Object.entries(q.modules||{});
+  return `<div class="card-h"><h3>Quality &amp; System Health <small>automated tests (pytest)</small></h3><button class="btn primary" onclick="runTests()" id="runBtn">Run tests</button></div>
+   <div class="grid g4" style="margin-bottom:12px">${[['Automated tests',q.total,'blue','clipboard'],['Passed',q.passed,'green','check'],['Failed',q.failed,q.failed?'red':'green','alert'],['Skipped',q.skipped,'orange','clock']].map(x=>`<div class="card flat kpi"><div class="top"><div class="lbl">${x[0]}</div><div class="ic ${x[2]}">${ico(x[3],18)}</div></div><div class="val">${x[1]}</div></div>`).join('')}</div>
+   <div class="row" style="margin-bottom:10px">${badge(ok?'Operational':'Down').replace('Operational','All tests passing').replace('Down','Failures detected')}<span class="small mut">Last run ${esc(q.run_at)} · ${q.duration_s}s</span></div>
+   <div class="grid g-eq"><div class="tbl"><table><thead><tr><th>Test module</th><th class="n">Passed</th><th class="n">Failed</th><th class="n">Skipped</th></tr></thead><tbody>${mods.map(([k,v])=>`<tr><td class="mono">${esc(k)}</td><td class="n">${v.passed}</td><td class="n">${v.failed}</td><td class="n">${v.skipped}</td></tr>`).join('')}</tbody></table></div>
+   <div><div class="m"><span class="mut">API health</span>${badge('Operational')}</div><div class="m"><span class="mut">Database health</span><span id="dbh"></span></div><div class="m"><span class="mut">AI engine health</span><span id="aih"></span></div>${q.failed_tests&&q.failed_tests.length?`<p class="small" style="color:#f87171">Failed: ${q.failed_tests.map(esc).join(', ')}</p>`:''}</div></div>`;
+}
+async function loadQuality(){
+  try{const q=await api('/api/quality');$('quality').innerHTML=qualityHTML(q);fillHealthBadges()}catch(e){errorState($('quality'),e.message,loadQuality)}
+}
+function fillHealthBadges(){api('/api/system-health').then(d=>{const g=n=>badge((d.components.find(c=>c.name===n)||{}).status||'Down');if($('dbh'))$('dbh').innerHTML=g('Database');if($('aih'))$('aih').innerHTML=g('AI Engine')}).catch(()=>{})}
+async function runTests(){
+  const b=$('runBtn');b.disabled=true;b.textContent='Running tests…';
+  try{const q=await post('/api/quality/run');if(!q.available){toast(q.message,1);$('quality').innerHTML=qualityHTML(q)}else{toast(`Tests finished: ${q.passed} passed, ${q.failed} failed`,q.failed>0);$('quality').innerHTML=qualityHTML(q);fillHealthBadges()}}
+  catch(e){toast(e.message,1);b.disabled=false;b.textContent='Run tests'}
+}
+const loadAll=()=>{loadHealth();loadQuality()};
+loadAll();
+</script>{% endblock %}

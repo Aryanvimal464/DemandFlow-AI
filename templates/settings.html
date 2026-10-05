@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Settings</h2><p>Simulation parameters drive the cost, savings and what-if numbers. They are assumptions, not real business costs.</p></div></div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Simulation parameters <span class="tag">SYNTHETIC</span></h3></div><div id="form"><div class="skel" style="height:240px"></div></div>
+    <div class="row" style="margin-top:6px"><button class="btn primary" onclick="save()">Save parameters</button><button class="btn" onclick="resetDefaults()">Restore defaults</button></div></div>
+  <div class="card"><div class="card-h"><h3>AI brain &amp; demo data</h3></div>
+    <p class="mut">The Q-table and training statistics can be saved to and loaded from <span class="mono">brain/ai_brain.json</span>.</p>
+    <div class="row"><button class="btn" onclick="saveBrain()">Save AI brain</button><button class="btn" onclick="loadBrain()">Load AI brain</button></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <p class="mut">Reload the original synthetic CSV data (orders, stock and decision log are reset).</p><button class="btn danger" onclick="resetData()">Reset demo data</button>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <p class="small mut">SupplyMind AI v2.0 is a portfolio prototype using synthetic / simulated business data. It is not a production system.</p></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const L={holding_cost_pct_week:['Holding cost','% of price per kg per week'],stockout_penalty_pct:['Stockout penalty','% of price per kg of unmet demand'],ordering_cost:['Ordering cost','₹ per replenishment order'],transport_cost_per_km:['Transport cost','₹ per km per truck trip'],gross_margin_pct:['Gross margin','% earned on each kg sold'],vehicle_capacity_kg:['Vehicle capacity','kg per trip'],horizon_weeks:['Simulation horizon','weeks'],service_target_pct:['Service level target','%']};
+let LIM={};
+async function load(){
+  try{const s=await api('/api/settings');LIM=s.limits;
+    $('form').innerHTML=Object.keys(L).map(k=>`<div class="field"><label>${L[k][0]} <span class="dim">(${L[k][1]}; allowed ${LIM[k][0]}–${LIM[k][1]})</span></label><input id="s_${k}" type="number" step="any" min="${LIM[k][0]}" max="${LIM[k][1]}" value="${s.settings[k]}"></div>`).join('');
+  }catch(e){errorState($('form'),e.message,load)}
+}
+async function save(){const b={};Object.keys(L).forEach(k=>b[k]=$('s_'+k).value);
+  try{await post('/api/settings',{settings:b});toast('Parameters saved')}catch(e){toast(e.message,1)}}
+async function resetDefaults(){if(!await confirmDialog('Restore default parameters?','All simulation parameters return to their defaults.','Restore'))return;
+  try{await post('/api/settings',{reset:true});toast('Defaults restored');load()}catch(e){toast(e.message,1)}}
+load();
+</script>{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Demand Intelligence{% endblock %}
+{% block heading %}Demand Intelligence{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Demand Intelligence</h2><p id="method">Statistical forecasting from order history.</p></div>
+  <div class="row"><label style="margin:0">Product</label><select id="prod" style="width:200px"></select></div></div>
+<div class="grid g4" id="kpis">{% for i in range(5) %}<div class="card"><div class="skel" style="height:80px"></div></div>{% endfor %}</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Actual vs predicted <small id="btNote"></small></h3><div class="tabs"><button class="on" id="t7">7-day</button><button id="t30">30-day</button></div></div><div class="chartbox"><canvas id="cBt"></canvas></div><p class="note">Rolling backtest: each point compares a forecast made earlier with what actually happened afterwards. Synthetic data.</p></div>
+  <div class="card"><div class="card-h"><h3>Demand trend <small>weekly, last 12 weeks</small></h3></div><div class="chartbox"><canvas id="cTrend"></canvas></div></div>
+</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Weekly forecast by product <small>last 7 days vs next 7 days, kg</small></h3></div><div class="chartbox"><canvas id="cWeek"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Category demand <small>weekly, kg</small></h3></div><div class="chartbox"><canvas id="cCat"></canvas></div></div>
+</div>
+<div class="card"><div class="card-h"><h3>All products</h3></div><div class="tbl" id="tbl"></div></div>
+{% endblock %}
+{% block scripts %}<script>
+let DM=null,cur=null,hz=7;
+const sel=()=>DM.items.find(i=>i.product_id===$('prod').value)||DM.items[0];
+function kpis(p){
+  const conf=p.confidence;
+  $('kpis').innerHTML=[['7-Day Forecast',fmt(p.d7)+' kg','trend','purple',`vs ${fmt(p.last_week)} kg last week`],['30-Day Forecast',fmt(p.d30)+' kg','trend','blue','model projection'],
+   ['Trend',(p.trend_pct>=0?'↑ ':'↓ ')+Math.abs(p.trend_pct)+'%',p.trend_pct>=0?'up':'down',p.trend_pct>=0?'green':'orange','last 30 vs previous 30 days'],['Seasonality','×'+p.seasonal.toFixed(2),'clock','cyan','next week vs this month (assumed index)'],
+   ['Forecast Confidence',conf==null?'–':conf.toFixed(1)+'%','target','blue',`30-day backtest (naive ${p.naive_confidence==null?'–':p.naive_confidence.toFixed(1)+'%'}; 7-day ${p.confidence_7d==null?'–':p.confidence_7d.toFixed(1)+'%'})`]]
+   .map(x=>`<div class="card kpi"><div class="top"><div class="lbl">${x[0]}</div><div class="ic ${x[3]}">${ico(x[2],18)}</div></div><div class="val">${x[1]}</div><div class="desc">${x[4]}</div></div>`).join('');
+}
+function drawBt(p){const rows=hz===7?p.backtest:p.backtest30;
+  $('btNote').textContent=hz===7?'7-day horizon':'30-day horizon';
+  makeChart('cBt',{type:'line',data:{labels:rows.map(r=>r.date.slice(5)),datasets:[{label:'Actual (kg)',data:rows.map(r=>r.actual),borderColor:'#4f8cff',backgroundColor:'#4f8cff',tension:.25,pointRadius:3},{label:'Predicted (kg)',data:rows.map(r=>r.predicted),borderColor:'#22d3ee',borderDash:[6,4],tension:.25,pointRadius:3},{label:'Naive baseline',data:rows.map(r=>r.naive),borderColor:'#5f6c8b',borderDash:[2,4],pointRadius:0}]},options:{scales:{y:axisT('kg in horizon'),x:axisT('period end (MM-DD)')}}})}
+function drawAll(){
+  const p=sel();kpis(p);drawBt(p);
+  const wl=p.history.map((_,i)=>i===11?'This wk':`W-${11-i}`).concat(['Forecast']);
+  makeChart('cTrend',{type:'bar',data:{labels:wl,datasets:[{label:'Weekly demand (kg)',data:p.history.concat([null]),backgroundColor:'#4f8cff',borderRadius:3},{label:'Next 7-day forecast',data:p.history.map(()=>null).concat([p.d7]),backgroundColor:'#22d3ee',borderRadius:3}]},options:{scales:{y:axisT('kg')}}});
+}
+function drawStatic(){
+  makeChart('cWeek',{type:'bar',data:{labels:DM.items.map(i=>i.name),datasets:[{label:'Last 7 days (actual)',data:DM.items.map(i=>i.last_week),backgroundColor:'#4f8cff',borderRadius:3},{label:'Next 7 days (forecast)',data:DM.items.map(i=>i.d7),backgroundColor:'#22d3ee',borderRadius:3}]},options:{scales:{y:axisT('kg'),x:{ticks:{maxRotation:55}}}}});
+  const labels=Array.from({length:12},(_,i)=>i===11?'This wk':`W-${11-i}`);const cols=['#4f8cff','#8b5cf6','#22d3ee'];
+  makeChart('cCat',{type:'bar',data:{labels,datasets:Object.keys(DM.categories).map((k,i)=>({label:k,data:DM.categories[k],backgroundColor:cols[i%3],borderRadius:2}))},options:{scales:{x:{stacked:true},y:{stacked:true,...axisT('kg')}}}});
+  $('tbl').innerHTML=`<table><thead><tr><th>Product</th><th>Category</th><th class="n">7-day</th><th class="n">30-day</th><th class="n">Trend</th><th class="n">Seasonal</th><th class="n">Confidence (30d)</th></tr></thead><tbody>${DM.items.map(p=>`<tr class="click" onclick="$('prod').value='${p.product_id}';drawAll();window.scrollTo({top:0,behavior:'smooth'})"><td><b>${esc(p.name)}</b></td><td>${esc(p.category)}</td><td class="n">${fmt(p.d7)} kg</td><td class="n">${fmt(p.d30)} kg</td><td class="n"><span class="badge b-${p.trend_pct>=0?'green':'orange'}">${p.trend_pct>=0?'↑':'↓'} ${Math.abs(p.trend_pct)}%</span></td><td class="n">×${p.seasonal.toFixed(2)}</td><td class="n">${p.confidence==null?'–':p.confidence.toFixed(1)+'%'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function load(){
+  try{DM=await api('/api/demand');$('method').textContent=DM.method;
+    const keep=$('prod').value;$('prod').innerHTML=DM.items.map(i=>`<option value="${i.product_id}">${esc(i.name)}</option>`).join('');if(keep)$('prod').value=keep;
+    drawStatic();drawAll();
+  }catch(e){errorState($('kpis'),e.message,load)}
+}
+$('prod').onchange=drawAll;
+$('t7').onclick=()=>{hz=7;$('t7').classList.add('on');$('t30').classList.remove('on');drawBt(sel())};
+$('t30').onclick=()=>{hz=30;$('t30').classList.add('on');$('t7').classList.remove('on');drawBt(sel())};
+load();
+</script>{% endblock %}

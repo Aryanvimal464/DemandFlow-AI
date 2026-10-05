@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{% endblock %} · SupplyMind AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head><body>
+{% set path = request.path %}
+{% macro nav(href, icon, label, match=None) %}<a href="{{ href }}" class="{{ 'active' if (path==href or (match and path.startswith(match))) }}" title="{{ label }}"><svg class="ico" data-ico="{{ icon }}"></svg><span>{{ label }}</span></a>{% endmacro %}
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <div class="brand"><div class="logo"><svg class="ico" data-ico="cpu"></svg></div><div><b>SUPPLYMIND AI</b><small>AI-Powered Supply &amp; Inventory Intelligence</small></div></div>
+  <nav class="nav">
+    {{ nav('/', 'grid', 'Dashboard') }}
+    {{ nav('/inventory', 'package', 'Inventory Intelligence') }}
+    {{ nav('/demand', 'trend', 'Demand Intelligence') }}
+    {{ nav('/orders', 'clipboard', 'Orders') }}
+    {{ nav('/dealers', 'users', 'Dealers', '/dealers') }}
+    {{ nav('/ai-agent', 'cpu', 'AI Supply Agent') }}
+    {{ nav('/what-if', 'sliders', 'What-If Simulator') }}
+    {{ nav('/training', 'zap', 'AI Training Lab') }}
+    {{ nav('/route-planner', 'truck', 'Route Optimization') }}
+    {{ nav('/cost-optimization', 'dollar', 'Cost Optimization') }}
+    {{ nav('/system-health', 'activity', 'System Health') }}
+    {{ nav('/settings', 'gear', 'Settings') }}
+    {{ nav('/help', 'help', 'Help & Guide') }}
+  </nav>
+  <div class="side-foot">v2.0 · Portfolio prototype<br>Synthetic data only</div>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button class="icon-btn" id="menuBtn" aria-label="Toggle sidebar"><svg class="ico" data-ico="menu"></svg></button>
+    <h1>{% block heading %}{% endblock %}</h1>
+    <div class="search"><svg class="ico" data-ico="search"></svg><input id="gsearch" placeholder="Search products, dealers, orders…" autocomplete="off" aria-label="Search"><div class="dropdown" id="searchDd"></div></div>
+    <div class="menu-wrap"><button class="icon-btn" id="bellBtn" aria-label="Notifications"><svg class="ico" data-ico="bell"></svg><span class="badge-dot" id="bellCount" style="display:none">0</span></button>
+      <div class="dropdown right" id="bellDd"></div></div>
+    <button class="icon-btn" id="helpBtn" aria-label="Help for this page" title="Help for this page"><svg class="ico" data-ico="help"></svg></button>
+    <div class="status-pill" id="aiStatus" data-tip="Live check of the /health endpoint"><i></i><span>AI SYSTEM ONLINE</span></div>
+    <div class="menu-wrap"><button class="avatar" id="avatarBtn" aria-label="Profile menu">DA</button>
+      <div class="menu" id="profileMenu"><div class="who"><b>Demo Admin</b><small>Portfolio demo account</small></div>
+        <a href="/help">Help &amp; Guide</a><a href="/settings">Settings</a><a href="/system-health">System health</a><button onclick="resetData()">Reset demo data</button></div></div>
+  </header>
+  <div class="banner">Portfolio prototype using synthetic / simulated business data. Metrics are simulation outputs, not real-world results. <span id="simDate"></span></div>
+  <main class="content">{% block content %}{% endblock %}</main>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<aside class="drawer" id="drawer" aria-label="Details"><div class="dh"><h3 id="drawerTitle"></h3><button class="icon-btn" onclick="closeDrawer()" aria-label="Close"><svg class="ico" data-ico="x"></svg></button></div><div class="db" id="drawerBody"></div></aside>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body></html>

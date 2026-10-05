@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Route Optimization{% endblock %}
+{% block heading %}Route Optimization{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Route Optimization <span class="tag">SIMULATED GRID</span></h2><p>Delivery sequence for open orders, using priority, distance and deadlines. No GPS or live map data is used.</p></div>
+  <div class="row"><label style="margin:0;display:flex;gap:7px;align-items:center"><input type="checkbox" id="conf" checked> Include Confirmed orders</label><button class="btn primary" onclick="plan()">Optimize route</button></div></div>
+<div class="grid g4" id="stats">{% for i in range(6) %}<div class="card"><div class="skel" style="height:70px"></div></div>{% endfor %}</div>
+<div class="grid g-main">
+  <div class="mapbox"><svg id="map" viewBox="0 0 700 480" width="100%" role="img" aria-label="Simulated delivery route map"></svg></div>
+  <div class="card"><div class="card-h"><h3>Delivery sequence</h3></div><div id="seq"></div></div>
+</div>
+<div class="card"><div class="card-h"><h3>Stops</h3></div><div class="tbl" id="tbl"></div>
+  <p class="note" id="foot">Greedy priority/urgency/distance construction improved with 2-opt swaps, minimising distance + lateness + priority-weighted waiting. Speed 35 km/h, 24 min service per stop, start 08:00.</p></div>
+{% endblock %}
+{% block scripts %}<script>
+function draw(d){
+  const svg=$('map'),W=700,H=480,P=44;const pts=d.all_customers.concat([{x:0,y:0}]);
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const sc=Math.min((W-2*P)/Math.max(maxx-minx,1),(H-2*P)/Math.max(maxy-miny,1));const X=x=>P+(x-minx)*sc,Y=y=>H-P-(y-miny)*sc;let s='';
+  for(let gx=Math.ceil(minx/50)*50;gx<=maxx;gx+=50)s+=`<line x1="${X(gx)}" y1="0" x2="${X(gx)}" y2="${H}" stroke="#1b2641"/><text x="${X(gx)+3}" y="${H-5}" font-size="10" fill="#5f6c8b">${gx} km</text>`;
+  for(let gy=Math.ceil(miny/50)*50;gy<=maxy;gy+=50)s+=`<line x1="0" y1="${Y(gy)}" x2="${W}" y2="${Y(gy)}" stroke="#1b2641"/><text x="5" y="${Y(gy)-3}" font-size="10" fill="#5f6c8b">${gy} km</text>`;
+  const ids=new Set(d.stops.map(x=>x.customer_id));
+  d.all_customers.forEach(c=>{if(!ids.has(c.id))s+=`<circle cx="${X(c.x)}" cy="${Y(c.y)}" r="4" fill="#2c3a58"><title>${esc(c.name)} (no open orders)</title></circle>`});
+  if(d.stops.length){const path=[[0,0]].concat(d.stops.map(x=>[x.x,x.y]),[[0,0]]);
+    s+=`<polyline class="route-line" fill="none" stroke="#22d3ee" stroke-width="2.2" points="${path.map(p=>X(p[0])+','+Y(p[1])).join(' ')}"/>`;
+    const col={High:'#ef4444',Medium:'#4f8cff',Low:'#8f9bb8'};
+    d.stops.forEach(t=>{s+=`<circle cx="${X(t.x)}" cy="${Y(t.y)}" r="12" fill="${col[t.priority]}" stroke="#0a0f1d" stroke-width="2"><title>${esc(t.name)} · ${t.priority} priority</title></circle><text x="${X(t.x)}" y="${Y(t.y)+4}" font-size="11" font-weight="800" text-anchor="middle" fill="#fff">${t.seq}</text><text x="${X(t.x)+16}" y="${Y(t.y)+4}" font-size="10.5" fill="#cbd5ec">${esc(t.name)}</text>`})}
+  s+=`<rect x="${X(0)-9}" y="${Y(0)-9}" width="18" height="18" rx="4" fill="#f59e0b"/><text x="${X(0)+14}" y="${Y(0)+4}" font-size="11" font-weight="800" fill="#e7ecf6">Warehouse</text>`;
+  s+=`<g font-size="10.5" fill="#8f9bb8"><circle cx="540" cy="18" r="5" fill="#ef4444"/><text x="550" y="22">High</text><circle cx="590" cy="18" r="5" fill="#4f8cff"/><text x="600" y="22">Medium</text><circle cx="650" cy="18" r="5" fill="#8f9bb8"/><text x="660" y="22">Low</text></g>`;
+  svg.innerHTML=s;
+}
+async function plan(){
+  try{
+    const d=await post('/api/route/summary',{include_confirmed:$('conf').checked});
+    const items=[['Total distance',fmt(d.total_km,1)+' km','truck','blue',`unsorted: ${fmt(d.naive_km,1)} km (saves ${d.saving_pct}%)`],['Estimated delivery time',fmt(d.total_hours,1)+' h','clock','cyan','driving + service time'],['Number of stops',d.n_stops,'package','purple',d.total_qty?fmt(d.total_qty)+' kg to deliver':'–'],
+      ['Vehicle capacity',fmt(d.vehicle_capacity)+' kg','box','orange',d.trips>1?`${d.trips} trips needed (capacity is not enforced in sequencing)`:'one trip is enough'],['Priority deliveries',d.priority_deliveries,'alert','red','stops with a High-priority order'],['Estimated transport cost',money(d.transport_cost),'dollar','green','distance × ₹/km × trips (simulation parameter)']];
+    $('stats').innerHTML=items.map(x=>`<div class="card kpi"><div class="top"><div class="lbl">${x[0]}</div><div class="ic ${x[3]}">${ico(x[2],18)}</div></div><div class="val">${x[1]}</div><div class="desc">${x[4]}</div></div>`).join('');
+    $('seq').innerHTML=d.stops.length?d.sequence.map((n,i)=>{const end=i===0||i===d.sequence.length-1;return `<div style="text-align:center"><span class="badge b-${end?'orange':'blue'}" style="font-size:12.5px;padding:5px 14px">${esc(n)}</span></div>${i<d.sequence.length-1?'<div style="text-align:center;color:#5f6c8b;line-height:1.2">↓</div>':''}`}).join(''):emptyState(d.message||'No stops','Create orders to plan a route.');
+    $('tbl').innerHTML=d.stops.length?`<table><thead><tr><th>#</th><th>Dealer</th><th>Location</th><th class="n">Orders</th><th class="n">Qty (kg)</th><th>Priority</th><th>Deadline</th><th class="n">Leg (km)</th><th>ETA</th></tr></thead><tbody>${d.stops.map(t=>`<tr><td>${t.seq}</td><td><b>${esc(t.name)}</b></td><td>${esc(t.location)}</td><td class="n">${t.orders}</td><td class="n">${fmt(t.qty)}</td><td>${badge(t.priority)}</td><td>${t.deadline}${t.late?' <span class="badge b-red">late</span>':''}</td><td class="n">${t.leg_km}</td><td>${t.arrival}</td></tr>`).join('')}</tbody></table>`:emptyState('No stops to deliver');
+    draw(d);
+  }catch(e){errorState($('stats'),e.message,plan)}
+}
+$('conf').onchange=plan;plan();
+</script>{% endblock %}

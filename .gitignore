@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+supply.db
+brain/*.json
+.venv/
+.DS_Store
+tests/report.xml
+tests/last_run.json
+settings.json
+.pytest_cache/

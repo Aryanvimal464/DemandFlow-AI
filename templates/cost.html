@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Cost Optimization{% endblock %}
+{% block heading %}Cost Optimization{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Cost Optimization <span class="tag">SIMULATION PARAMETERS</span></h2><p id="note">Simulated cost of acting on the AI recommendation versus doing nothing.</p></div><a class="btn" href="/settings">Edit parameters</a></div>
+<div class="grid g3" id="top">{% for i in range(3) %}<div class="card"><div class="skel" style="height:90px"></div></div>{% endfor %}</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Cost breakdown <small>total across products</small></h3></div><div class="chartbox"><canvas id="cBreak"></canvas></div></div>
+  <div class="card"><div class="card-h"><h3>Cost by product <small>current vs AI</small></h3></div><div class="chartbox"><canvas id="cProd"></canvas></div></div>
+</div>
+<div class="grid g-eq">
+  <div class="card"><div class="card-h"><h3>Breakdown table</h3></div><div class="tbl" id="bt"></div></div>
+  <div class="card"><div class="card-h"><h3>Simulation parameters in use</h3></div><div id="params"></div></div>
+</div>
+<div class="card"><div class="card-h"><h3>Per product</h3></div><div class="tbl" id="tbl"></div></div>
+{% endblock %}
+{% block scripts %}<script>
+const PN={holding_cost_pct_week:'Holding cost (% of price / kg / week)',stockout_penalty_pct:'Stockout penalty (% of price / kg short)',ordering_cost:'Ordering cost (₹ per order)',transport_cost_per_km:'Transport cost (₹ per km)',gross_margin_pct:'Gross margin (%)',vehicle_capacity_kg:'Vehicle capacity (kg)',horizon_weeks:'Horizon (weeks)',service_target_pct:'Service target (%)'};
+async function load(){
+  try{
+    const d=await api('/api/cost');$('note').textContent=d.note;const c=d.current,a=d.ai,H=d.horizon_weeks;
+    const sv=d.saving;
+    $('top').innerHTML=[['CURRENT COST (no action)',money(c.total_cost),'blue','dollar',`${H}-week simulated total`],['AI OPTIMIZED COST',money(a.total_cost),'cyan','cpu','acting on AI recommendations'],['POTENTIAL SAVING',money(sv),sv>=0?'green':'red','trend',`${c.total_cost?(100*sv/c.total_cost).toFixed(1):0}% of current cost`]]
+     .map(x=>`<div class="card kpi"><div class="top"><div class="lbl">${x[0]}</div><div class="ic ${x[2]}">${ico(x[3],18)}</div></div><div class="val">${x[1]}</div><div class="desc">${x[4]}</div></div>`).join('');
+    const K=[['holding','Holding'],['stockout','Stockout'],['transport','Transport'],['ordering','Ordering']];
+    makeChart('cBreak',{type:'bar',data:{labels:K.map(k=>k[1]),datasets:[{label:'Current (no action)',data:K.map(k=>c[k[0]]),backgroundColor:'#5f6c8b',borderRadius:4},{label:'AI optimized',data:K.map(k=>a[k[0]]),backgroundColor:'#4f8cff',borderRadius:4}]},options:{scales:{y:axisT('₹ (simulated)')}}});
+    makeChart('cProd',{type:'bar',data:{labels:d.rows.map(r=>r.name),datasets:[{label:'Current',data:d.rows.map(r=>r.current),backgroundColor:'#5f6c8b',borderRadius:3},{label:'AI',data:d.rows.map(r=>r.ai),backgroundColor:'#22d3ee',borderRadius:3}]},options:{scales:{y:axisT('₹'),x:{ticks:{maxRotation:55}}}}});
+    $('bt').innerHTML=`<table><thead><tr><th>Component</th><th class="n">Current</th><th class="n">AI</th></tr></thead><tbody>${K.map(k=>`<tr><td>${k[1]} cost</td><td class="n">${money(c[k[0]])}</td><td class="n">${money(a[k[0]])}</td></tr>`).join('')}<tr><td><b>Total cost</b></td><td class="n"><b>${money(c.total_cost)}</b></td><td class="n"><b>${money(a.total_cost)}</b></td></tr><tr><td><b>Estimated savings</b></td><td></td><td class="n" style="color:${sv>=0?'#4ade80':'#f87171'}"><b>${money(sv)}</b></td></tr></tbody></table>`;
+    $('params').innerHTML=Object.entries(d.params).map(([k,v])=>`<div class="m"><span class="mut">${PN[k]||k}</span><b>${v}</b></div>`).join('');
+    $('tbl').innerHTML=`<table><thead><tr><th>Product</th><th>AI action</th><th class="n">Qty</th><th class="n">Stockout risk now → AI</th><th class="n">Current cost</th><th class="n">AI cost</th><th class="n">Saving</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.action)}</td><td class="n">${r.qty?r.qty+' kg':'–'}</td><td class="n">${r.stockout_prob_current}% → ${r.stockout_prob_ai}%</td><td class="n">${money(r.current)}</td><td class="n">${money(r.ai)}</td><td class="n" style="color:${r.saving>=0?'#4ade80':'#f87171'}">${money(r.saving)}</td></tr>`).join('')}</tbody></table>`;
+  }catch(e){errorState($('top'),e.message,load)}
+}
+window.onBrainChanged=load;load();
+</script>{% endblock %}

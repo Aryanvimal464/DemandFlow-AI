@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Inventory Intelligence{% endblock %}
+{% block heading %}Inventory Intelligence{% endblock %}
+{% block content %}
+<div class="page-head"><div><h2>Inventory Intelligence</h2><p>Stock position, safety levels and AI recommendations. Click a product for details.</p></div></div>
+<div class="card">
+  <div class="toolbar">
+    <input id="q" placeholder="Search product…" aria-label="Search product">
+    <select id="fCat"><option value="">All categories</option></select>
+    <select id="fStatus"><option value="">All statuses</option><option>Healthy</option><option>Low Stock</option><option>Critical</option><option>Overstock</option></select>
+    <select id="fRisk"><option value="">All risk levels</option><option>High</option><option>Medium</option><option>Low</option></select>
+    <select id="fSup"><option value="">All suppliers</option></select>
+    <select id="fReorder"><option value="">Any reorder status</option><option>Reorder now</option><option>On order</option><option>OK</option></select>
+    <button class="btn ghost sm" id="clear">Clear</button><span class="mut small" id="count"></span>
+  </div>
+  <div class="tbl" id="tbl"><div style="padding:16px">...</div></div>
+  <p class="note">Reorder point = safety stock + lead-time demand. Stockout risk = simulated probability of a shortage in the next weeks if no action is taken.</p>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+let rows=[];
+const F=['q','fCat','fStatus','fRisk','fSup','fReorder'].map($);
+function render(){
+  const [q,cat,st,rk,sup,ro]=F.map(x=>x.value);
+  const f=rows.filter(r=>(!q||r.name.toLowerCase().includes(q.toLowerCase()))&&(!cat||r.category===cat)&&(!st||r.status===st)&&(!rk||r.risk===rk)&&(!sup||r.supplier===sup)&&(!ro||r.reorder_status===ro));
+  $('count').textContent=`${f.length} of ${rows.length} products`;
+  if(!f.length){$('tbl').innerHTML=emptyState('No products match these filters','Try clearing a filter.');return}
+  $('tbl').innerHTML=`<table><thead><tr><th>Product</th><th>Category</th><th class="n">Current stock</th><th class="n">7-day demand</th><th class="n">Safety stock</th><th class="n">Reorder point</th><th class="n">Stockout risk</th><th>AI recommendation</th><th>Reorder</th><th>Status</th></tr></thead><tbody>${f.map(r=>`<tr class="click" onclick="openProduct('${r.product_id}')"><td><b>${esc(r.name)}</b><div class="small dim">${esc(r.supplier)}</div></td><td>${esc(r.category)}</td><td class="n">${fmt(r.stock)} kg</td><td class="n">${fmt(r.d7)}</td><td class="n">${fmt(r.safety)}</td><td class="n">${fmt(r.reorder_point)}</td>
+   <td class="n">${badge(r.risk)} <span class="small mut">${r.stockout_prob}%</span></td><td>${esc(r.recommendation)}${r.reorder_qty?` <span class="mono small mut">${r.reorder_qty} kg</span>`:''}</td><td>${badge(r.reorder_status)}</td><td>${badge(r.status)}</td></tr>`).join('')}</tbody></table>`;
+}
+async function openProduct(pid){
+  openDrawer('Loading…',skeleton(6,22));
+  try{
+    const p=await api('/api/product/'+pid),r=p.recommendation;
+    const wl=p.weekly_history.map((_,i)=>i===11?'This wk':`W-${11-i}`).concat(['Forecast']);
+    openDrawer(p.name,`<div class="row" style="margin-bottom:12px">${badge(p.status)}${badge(r.risk)}<span class="tag">SIMULATED DATA</span></div>
+     <div class="grid g3" style="gap:10px">${[['Current stock',fmt(p.stock)+' kg'],['Safety stock',fmt(p.safety)+' kg'],['Reorder point',fmt(p.reorder_point)+' kg'],['7-day forecast',fmt(p.d7)+' kg'],['30-day forecast',fmt(p.d30)+' kg'],['Trend',(p.trend_pct>=0?'↑ ':'↓ ')+Math.abs(p.trend_pct)+'%'],['Supplier lead time',p.lead_days+' days'],['Effective lead time',p.eff_lead_days+' days'],['Min / Max',fmt(p.min_stock)+' / '+fmt(p.max_stock)]].map(x=>`<div class="card flat" style="padding:10px"><div class="small mut">${x[0]}</div><b>${x[1]}</b></div>`).join('')}</div>
+     <h3 style="margin:18px 0 8px">Historical demand and forecast</h3><div class="chartbox sm"><canvas id="cDrawer"></canvas></div>
+     <h3 style="margin:18px 0 8px">AI recommendation</h3><div class="card flat"><div class="head" style="font-size:18px;font-weight:800">${esc(r.headline)}</div><div class="small mut" style="margin:4px 0 8px">Qty ${r.reorder_qty} kg · confidence ${r.confidence}%</div><ul class="reasons">${r.reasons.slice(0,4).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><a class="btn sm" href="/ai-agent">Open AI Supply Agent</a></div>
+     <h3 style="margin:18px 0 8px">Cost impact <small class="mut">simulated, ${'4'}-week horizon</small></h3>
+     <div class="grid g2" style="gap:10px"><div class="card flat" style="padding:12px"><div class="small mut">No action</div><b style="font-size:18px">${money(p.cost_no_action.total_cost)}</b><div class="small mut">Stockout risk ${p.cost_no_action.stockout_prob}% · service ${p.cost_no_action.service_level}%</div></div>
+      <div class="card flat" style="padding:12px"><div class="small mut">With AI recommendation</div><b style="font-size:18px">${money(p.cost_ai.total_cost)}</b><div class="small mut">Stockout risk ${p.cost_ai.stockout_prob}% · service ${p.cost_ai.service_level}%</div></div></div>
+     <h3 style="margin:18px 0 8px">Pending orders (${p.pending.length})</h3>${p.pending.length?`<div class="tbl"><table><thead><tr><th>Order</th><th>Dealer</th><th class="n">Qty</th><th>Due</th><th>Priority</th></tr></thead><tbody>${p.pending.map(o=>`<tr><td>${o.order_id}</td><td>${esc(o.customer)}</td><td class="n">${fmt(o.quantity)}</td><td>${o.required}</td><td>${badge(o.priority)}</td></tr>`).join('')}</tbody></table></div>`:emptyState('No pending orders')}`);
+    makeChart('cDrawer',{type:'bar',data:{labels:wl,datasets:[{label:'Weekly demand (kg)',data:p.weekly_history.concat([null]),backgroundColor:'#4f8cff',borderRadius:3},{label:'7-day forecast',data:p.weekly_history.map(()=>null).concat([p.d7]),backgroundColor:'#22d3ee',borderRadius:3}]},options:{scales:{y:axisT('kg'),x:{ticks:{maxRotation:0,autoSkip:true}}}}});
+  }catch(e){openDrawer('Error','');errorState($('drawerBody'),e.message,()=>openProduct(pid))}
+}
+async function load(){
+  $('tbl').innerHTML='<div style="padding:16px">'+skeleton(6,28)+'</div>';
+  try{rows=await api('/api/inventory-intel');
+    const fill=(el,vals)=>{const cur=el.value;el.innerHTML=el.options[0].outerHTML+[...new Set(vals)].sort().map(v=>`<option>${esc(v)}</option>`).join('');el.value=cur};
+    fill($('fCat'),rows.map(r=>r.category));fill($('fSup'),rows.map(r=>r.supplier));render();
+    const o=new URLSearchParams(location.search).get('open');if(o&&!window._opened){window._opened=1;openProduct(o)}
+  }catch(e){errorState($('tbl'),e.message,load)}
+}
+F.forEach(x=>x.addEventListener('input',render));$('clear').onclick=()=>{F.forEach(x=>x.value='');render()};
+window.onBrainChanged=load;load();
+</script>{% endblock %}
