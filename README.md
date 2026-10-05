@@ -49,7 +49,6 @@ Every recommendation carries an explanation, risk level, confidence and a simula
 
 ### 🤖 AI Recommendations
 ![AI Recommendations](docs/screenshots/ai-recommendations.jpeg)
-
 ## Architecture
 ```
 Browser (HTML/CSS/JS, Chart.js)  ──JSON──  Flask (app.py)  ──  SQLite (supply.db) ← data/*.csv
