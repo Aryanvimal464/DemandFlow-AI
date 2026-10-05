@@ -1,3 +1,8 @@
+## 🚀 Live Demo
+
+[*Launch DemandFlow AI*](https://demandflow-ai-aryan.onrender.com/)
+
+> Deployed on Render. The first request may take some time because the service runs on the free tier.
 # SupplyMind AI — AI-Powered Supply & Inventory Intelligence
 
 > **This is a portfolio prototype using synthetic / simulated business data.** All products, dealers, orders, costs and results are fictional. Simulation outputs (savings, service level, stockout risk, accuracy) are **not** real-world production results. The internal project name is still *AI Supply Agent*.
@@ -31,6 +36,19 @@ Every recommendation carries an explanation, risk level, confidence and a simula
 | **System Health** | Live component checks + automated test results (pytest) |
 | **Settings** | Editable simulation parameters, brain save/load, data reset |
 | **Help & Guide** | `/help`: page-by-page explanation, interactive AI workflow, live example from real data, glossary and FAQ. The `?` button in the top bar opens quick help for the current page |
+## 📸 Screenshots
+
+### 🏠 Dashboard
+![DemandFlow AI Dashboard](docs/screenshots/dashboard.jpeg)
+
+### 📊 Demand Forecasting
+![Demand Forecasting](docs/screenshots/demand-forecast.jpeg)
+
+### 📦 Inventory Analysis
+![Inventory Analysis](docs/screenshots/inventory-analysis.jpeg)
+
+### 🤖 AI Recommendations
+![AI Recommendations](docs/screenshots/ai-recommendations.jpeg)
 
 ## Architecture
 ```
